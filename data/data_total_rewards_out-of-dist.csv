@@ -1,0 +1,10 @@
+Walls,Distance,H-DDPG (μ),H-DDPG (SEM),HGB-DDPG (μ),HGB-DDPG (SEM)
+empty,close,-2.81,0.3,-6.76,0.59
+empty,mid,-6.64,0.34,-13.35,0.78
+empty,far,-16.37,1.7,-26.0,1.09
+oneline,close,-2.83,0.3,-6.73,0.59
+oneline,mid,-53.47,6.63,-42.67,5.21
+oneline,far,-88.41,3.74,-40.36,2.21
+hooks,close,-80.12,5.53,-59.03,4.85
+hooks,mid,-100.0,0.0,-48.33,1.57
+hooks,far,-100.0,0.0,-90.68,1.31
