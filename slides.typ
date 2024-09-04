@@ -1,5 +1,7 @@
 #import "@preview/polylux:0.3.1": *
+#import "@preview/diagraph:0.2.1": render as render-graph
 #import "slides_template.typ": *
+#import "slides_utils.typ": side-by-side
 #import "drawings.typ": *
 
 #show link: set text(blue)
@@ -8,59 +10,762 @@
 #show raw: set text(font: "JuliaMono")
 
 #show: clean-theme.with(
-    logo: image("images/logo.png"),
-    short-title: [DRL & Graphs],
-    footer: [Travis Hammond - Rijksuniversiteit Groningen],
+  logo: image("images/logo.png"),
+  short-title: [DRL & Graphs],
+  footer: [Travis Hammond - Rijksuniversiteit Groningen],
 )
 
 #let textsize = 20pt
+#let topspace = 30pt
+
 #set text(size: textsize)
 
 // Helper function to show figures in 11pt text-size
 #let ogfigure(fig) = [
-  #set text(size: 11pt) // Set text-size to 11pt in scope
-  #figure(fig)
+  #set text(size: 10pt) 
+  #box(width: 100%, height: 90%)[
+    #align(horizon)[
+      #figure(fig)
+    ]
+  ]
 ]
 
-
 #title-slide(
-    title: [Combining Graph-Based Planning and Deep Reinforcement Learning],
-    subtitle: "Masters Thesis",
-    authors: "Travis Hammond",
-    date: "September 2024",
+  title: [Combining Graph-Based Planning and Deep Reinforcement Learning],
+  subtitle: "Masters Thesis",
+  authors: "Travis Hammond",
+  date: "September 2024",
 )
+
+#slide(title: "Outline")[
+    // Why not include an outline?
+    #polylux-outline(padding: 1em, enum-args: (tight: false))
+]
+
+// Rust!
+// Demo!
+
+
+
+// Questions:
+// does this still suffer from worse asymptotic performance?
+// - yes, its behavior / policy is influenced by the model and
+//   the model can be bad --> leads to bad data
+// known weakpoints:
+// - chicken / egg problem in exploration BUT: potential here
+// - no learned distance measure BUT: proof of concept exists
+
+
+
 
 
 /// SECTION
 #new-section-slide("Introduction")
 
 
-#slide(title: "About this presentation")[
-    #ogfigure(agent-environment-loop)
+#slide(title: "The Building Blocks: Deep Reinforcement Learning")[
+  #side-by-side[
+    #v(topspace)
 
-    Let's explore what we have here.
+    Learn a #emph("global solution") over all states
+    - i.e. a value or action-value function
+    Operates on atomic (low-level) actions
+
+    #v(50pt)
+
+    Fails at long-horizon planning
+    - i.e. many actions into the future
+
+    Can we fix that?
+  ][
+    #ogfigure(agent-environment-loop)
+  ]
 ]
+#slide(title: "The Building Blocks: Deep Reinforcement Learning")[
+  #side-by-side[
+    #v(topspace)
+
+    Incoming data stream to train the deep neural network violates the #strong("i.i.d") assumption:
+    
+    - Distribution determined by current policy
+
+    #v(30pt)
+
+    Replay Buffers are commonly used to partially restore this assumption and to improve sample efficiency.
+  ][
+    #ogfigure(online-vs-offline-learning)
+  ]
+]
+
+
+#slide(title: "The Building Blocks: Hierarchical RL")[
+  #side-by-side[
+    #v(topspace)
+    Abstract over time, i.e. sequences of actions
+    #v(-10pt)
+    #image("images/hierarchical-rl-diagram-MBRL-survey.png")
+    @MBRL-Survey
+  ][
+    #ogfigure(agent-environment-loop)
+  ]
+]
+#slide(title: "The Building Blocks: Hierarchical RL")[
+  #side-by-side[
+    #v(topspace)
+    An elegant solution: parameterize the goal!
+    - Goal-Conditioned RL (aka UVFA)
+
+    #v(30pt)
+
+    Some challenges:
+    - Even more general -> harder to train
+      - Even shorter horizon!
+
+    - How to generate subgoals?
+      - Suitable level of abstraction
+
+    // - Algorithm architecture
+    // TODO: GoExplore, HAC, Feudal
+  ][
+    #ogfigure(agent-environment-loop-goal-conditioned)
+  ]
+]
+
+
+#slide(title: "The Building Blocks: Model-Based RL")[
+  #side-by-side[
+    #v(topspace)
+    Idea is to learn a model of the environment
+
+    With #emph("reversible access")
+    - Can simulate taking actions
+    - Can repeatedly plan forward from any state
+
+    #v(30pt)
+
+    Benefits
+    - Better sample efficiency
+    - Better at long-horizon tasks
+    - Interpretable Model
+  ][
+    #ogfigure(agent-model-environment-loop)
+  ]
+]
+#slide(title: "The Building Blocks: Model-Based RL")[
+  #side-by-side[
+    #v(topspace)
+    Idea is to learn a model of the environment
+
+    With #emph("reversible access")
+    - Can simulate taking actions
+    - Can repeatedly plan forward from any state
+
+    #v(30pt)
+
+    Benefits only IF the model is good, otherwise:
+    - Model sampling becomes the burden
+    - Worse performance
+
+    Bad model --> Bad influence
+  ][
+    #ogfigure(agent-model-environment-loop)
+  ]
+]
+
+
+#slide(title: "The Building Blocks: Graph-Based Planning")[
+  #side-by-side[
+    #v(topspace)
+    Meanwhile, we all remember Dijkstra?
+    - Long-horizon planning --> No problem!
+
+    #v(40pt)
+
+    Nice properties:
+    - Stable performance: $O(|E| + |V|log|V|)$
+    - Guarantees (completeness & optimality)
+  ][
+    #ogfigure(example-graph)
+  ]
+]
+#slide(title: "The Building Blocks: Graph-Based Planning")[
+  #side-by-side[
+    #v(topspace)
+    Meanwhile, we all remember Dijkstra?
+    - Long-horizon planning --> No problem!
+
+    #v(40pt)
+
+    But...
+    - Requires handcrafted graph-representation
+      - Set of nodes
+      - Set of weights / edges
+    - How to actually move between nodes?
+  ][
+    #ogfigure(example-graph)
+  ]
+]
+
+
+#slide(title: "The Idea: Combine Graph-Based Planning and DRL")[
+  #side-by-side[
+    #box(width: 100%, height: 90%)[
+      #set text(size: 10pt)
+      #align(horizon)[
+        #v(70pt)
+        #figure(agent-environment-loop-goal-conditioned)
+        #v(60pt)
+        #set text(size: 19pt)
+        Low-level Controller: Reaches short-horizon subgoals via goal-conditioned RL.
+      ]
+    ]
+  ][
+    #box(width: 100%, height: 90%)[
+      #set text(size: 10pt)
+      #align(horizon)[
+        #figure(example-graph)
+        #v(20pt)
+        #set text(size: 19pt)
+        High-level Controller: Solves long-horizon tasks via sequencess of short-horizon subgoals.
+      ]
+    ]
+  ]
+]
+
+
+
+
+
+
+
 
 
 /// SECTION
 #new-section-slide("Methods")
 
 
-#slide(title: "A title")[
-    #ogfigure(on-policy-vs-off-policy-algorithms)
+#slide(title: "Actor-Critic Architecture (DDPG)")[
+  #side-by-side[
+    #v(topspace)
+    Components:
+    - Replay Buffer
+    - Actor(State) --> Action
+    - Critic(State, Action) --> Reward
+
+    #v(20pt)
+
+    Benefits:
+    - Loosly coupled --> allows multiple actors
+    - Can handle continuous environments
+    - Training stability
+  ][
+    #ogfigure(actor-critic-architecture)
+  ]
 ]
+
+
+#slide(title: "Big Idea: The Critic is the Distance Measure")[
+  #side-by-side[
+    #ogfigure(actor-critic-architecture)
+    // explain why the critic is a good proxy for the distance
+  ][
+    #ogfigure(example-graph)
+  ]
+]
+#slide(title: "Big Idea: The Actor is the Controller")[
+  #side-by-side[
+    #ogfigure(actor-critic-architecture)
+    // explain how the actor takes the role of the controller
+    // and how that piece is missing for graph-algorithms
+  ][
+    #ogfigure(example-graph)
+  ]
+]
+#slide(title: "Big Idea: The Buffer contains the Nodes")[
+  #side-by-side[
+    #ogfigure(actor-critic-architecture)
+    // explain how the actor takes the role of the controller
+    // and how that piece is missing for graph-algorithms
+  ][
+    #ogfigure(example-graph)
+  ]
+]
+
+
+#slide(title: "Challenge: Graph Sparsification")[
+  #side-by-side[
+    #box(width: 100%, height: 90%)[
+      #image("images/SoRB-illustration.png")
+      #v(-30pt)
+      #image("images/SGM-illustration.png")
+      @SoRB@SGM
+    ]
+  ][
+    #ogfigure(example-graph)
+  ]
+]
+#slide(title: "Challenge: Graph Sparsification")[
+  #side-by-side[
+    #v(topspace)
+    - Online sparsification algorithm $O(|V|^2)$ @SGM
+    - For any asymmetric distance function
+    - Proof of error bound in shortest-paths
+    
+    #v(15pt)
+    #[
+      #set text(size: 16pt) 
+      Two states are redundant if they are interchangeable as both starting states and goal states.
+    ]
+
+    $ C_("out") (s_1, s_2) = max_omega abs( d(s_1, omega) - d(s_2, omega) ) lt.eq tau $
+    $ C_("in") (s_1, s_2) = max_omega abs( d(omega, s_1) - d(omega, s_2) ) lt.eq tau $
+  ][
+    #box(width: 100%, height: 90%)[
+      #scale(ogfigure(SGM-node-merging), x: 180%, y: 180%)
+      @SGM
+    ]
+  ]
+]
+#slide(title: "Challenge: Graph Sparsification")[
+  #let resize = 100%
+  #box(width: 100%, height: 90%)[
+    #v(35pt)
+    A full Replay Buffer sparsified with $tau in {0.32, 0.40, 0.48}$
+    #set text(size: 10pt) 
+    #scale(
+      figure(
+        grid(
+          columns: (auto, auto, auto, auto),
+          rows: 1,
+          image("images/SGM/full-buffer.png"),
+          image("images/SGM/full-buffer-only-graph-tau32.png"),
+          image("images/SGM/full-buffer-only-graph-tau40.png"),
+          image("images/SGM/full-buffer-only-graph-tau48.png"),
+        ),
+      ),
+      x: resize,
+      y: resize,
+    )
+  ]
+
+]
+
+
+#slide(title: "Building Block Overview")[
+  #side-by-side[
+    #box(width: 100%, height: 90%)[
+      #set text(size: 10pt) 
+      #figure(agent-environment-loop-goal-conditioned)
+      #figure(agent-model-environment-loop)
+    ]
+  ][
+    #box(width: 100%, height: 90%)[
+      #v(20pt)
+      #set text(size: 10pt) 
+      #scale(figure(SGM-node-merging), x: 150%, y: 150%)
+      #figure(actor-critic-architecture)
+    ]
+  ][
+    #ogfigure(example-graph)
+  ]
+]
+#slide(title: "HGB-DDPG (Hierachical-Graph-Based DDPG)")[
+  #side-by-side[
+    #v(topspace)
+
+    Graph representation:
+    - Nodes from the Buffer
+    - Edge-weights from the Critic
+      - actually we provide the true distances :(
+    - Sparsified via SGM + MAXDIST
+    
+    Cleanup:
+    - Edges that failed to traverse are removed
+    - Reconstruct graph at fixed intervals
+  ][
+    #v(-10pt)
+    #ogfigure(hierarchical-graph-based-ddpg)
+  ]
+]
+
+
+
+
+
+
+
+
+/// SECTION
+#new-section-slide("Experiment Setup")
+
+
+
+#slide(title: "PointEnv Environment")[
+  #side-by-side[
+    #ogfigure(image("images/PointEnvs/Hooks-far.png"))
+  ][
+    #let resize = 75%
+    #box(width: 100%, height: 90%)[
+      #set text(size: 10pt) 
+      #v(-35pt)
+      #scale(
+        figure(
+          grid(
+            columns: (auto, auto, auto),
+            rows: 3,
+            image("images/PointEnvs/Empty-close.png"),
+            image("images/PointEnvs/OneLine-close.png"),
+            image("images/PointEnvs/Hooks-close.png"),
+        
+            image("images/PointEnvs/Empty-mid.png"),
+            image("images/PointEnvs/OneLine-mid.png"),
+            image("images/PointEnvs/Hooks-mid.png"),
+        
+            image("images/PointEnvs/Empty-far.png"),
+            image("images/PointEnvs/OneLine-far.png"),
+            image("images/PointEnvs/Hooks-far.png"),
+          ),
+        ),
+        x: resize,
+        y: resize,
+      )
+    ]
+  ]
+]
+
+
+#slide(title: "H-DDPG vs HGB-DDPG")[
+  #side-by-side[
+    #v(-40pt)
+    #ogfigure(actor-critic-architecture-hierarchical)
+    #v(-40pt)
+    The DDPG setting is Goal-Conditioned, but the goal is simple the end-goal.
+  ][
+    #v(-10pt)
+    #ogfigure(hierarchical-graph-based-ddpg)
+  ]
+]
+
+
+#slide(title: "Challenges")[
+  #side-by-side[
+    #v(topspace)
+    #strong("In-Distribution Challenges")
+    
+    Train the agent on one of the 9 environment settings, and measure test-time performance on the same environment.
+  ][
+    #v(topspace)
+    #strong("Out-of-Distribution Challenges")
+    
+    Pretrain the agent on the easiest of the 9 environment settings, and measure test-time performance on a harder environment.
+  ]
+]
+
+
+#slide(title: "Caveats")[
+  #side-by-side[
+    #v(topspace)
+    We side-step the learned distance measure:
+    - Assumed access to true distance function
+
+    We assume ability to start with a buffer of good quality training data
+    - uniformly-distributed
+    - decent amount of rewarded transitions
+  ][
+  ]
+]
+
+
+
+
+
+
+
 
 
 /// SECTION
 #new-section-slide("Results")
 
 
-/// SECTION
-#new-section-slide("Conclusion")
+#slide(title: "In-Distribution Challenges")[
+  #side-by-side[
+    #v(topspace)
+    - H-DDPG baseline (orange)
+    - HGB-DDPG algorithm (blue)
+    - PointEnvs "close".
+
+    #v(30pt)
+    We see the expected disadvantage of model-based methods: 
+
+    - Asymptotic performance is worse
+    - Overhead of subgoals too high
+    - Not suitable for short horizon tasks
+  ][
+    #box(width: 100%, height: 90%)[
+      #let resize = 85%
+      #set text(size: 10pt) 
+      #v(-75pt)
+      #scale(
+        figure(
+          grid(
+            columns: (15em, auto),
+            rows: (15em, 15em, 15em),
+            image("images/PointEnvs/Empty-close.png"),
+            image("images/DDPG-vs-HGB/plot-ddpg-vs-hgb-empty-close.png"),
+            image("images/PointEnvs/OneLine-close.png"),
+            image("images/DDPG-vs-HGB/plot-ddpg-vs-hgb-oneline-close.png"),
+            image("images/PointEnvs/Hooks-close.png"),
+            image("images/DDPG-vs-HGB/plot-ddpg-vs-hgb-hooks-close.png"),
+          ),  
+        ),
+        x: resize,
+        y: resize,
+      )
+    ]
+  ]
+]
+#slide(title: "In-Distribution Challenges")[
+  #side-by-side[
+    #v(topspace)
+    - H-DDPG baseline (orange)
+    - HGB-DDPG algorithm (blue)
+    - PointEnvs "mid".
+
+    #v(30pt)
+    We see the expected disadvantage of model-based methods: 
+
+    - Asymptotic performance is worse
+    - Overhead of subgoals too high
+    - Not suitable for short horizon tasks
+  ][
+    #box(width: 100%, height: 90%)[
+      #let resize = 85%
+      #set text(size: 10pt) 
+      #v(-75pt)
+      #scale(
+        figure(
+          grid(
+            columns: (15em, auto),
+            rows: (15em, 15em, 15em),
+            image("images/PointEnvs/Empty-mid.png"),
+            image("images/DDPG-vs-HGB/plot-ddpg-vs-hgb-empty-mid.png"),
+            image("images/PointEnvs/OneLine-mid.png"),
+            image("images/DDPG-vs-HGB/plot-ddpg-vs-hgb-oneline-mid.png"),
+            image("images/PointEnvs/Hooks-mid.png"),
+            image("images/DDPG-vs-HGB/plot-ddpg-vs-hgb-hooks-mid.png"),
+          ),
+        ),
+        x: resize,
+        y: resize,
+      )
+    ]
+  ]
+]
+#slide(title: "In-Distribution Challenges")[
+  #side-by-side[
+    #v(topspace)
+    - H-DDPG baseline (orange)
+    - HGB-DDPG algorithm (blue)
+    - PointEnvs "far".
+
+    #v(30pt)
+    We see the expected disadvantage of model-based methods: 
+
+    - Asymptotic performance is worse
+    - Overhead of subgoals too high
+    - Not suitable for short horizon tasks
+  ][
+    #box(width: 100%, height: 90%)[
+      #let resize = 85%
+      #set text(size: 10pt) 
+      #v(-75pt)
+      #scale(
+        figure(
+          grid(
+            columns: (15em, auto),
+            rows: (15em, 15em, 15em),
+            image("images/PointEnvs/Empty-far.png"),
+            image("images/DDPG-vs-HGB/plot-ddpg-vs-hgb-empty-far.png"),
+            image("images/PointEnvs/OneLine-far.png"),
+            image("images/DDPG-vs-HGB/plot-ddpg-vs-hgb-oneline-far.png"),
+            image("images/PointEnvs/Hooks-far.png"),
+            image("images/DDPG-vs-HGB/plot-ddpg-vs-hgb-hooks-far.png"),
+          ),
+        ),
+        x: resize,
+        y: resize,
+      )
+    ]
+  ]
+]
 
 
-#slide(title: "That's it!")[
-  Consider giving my repository #link("https://github.com/dashdeckers/graph_rl")[a GitHub star #text(font: "OpenMoji")[#emoji.star]] or open an issue if you run into bugs or have feature requests.
+#slide(title: "Out-of-Distribution Challenges")[
+  #side-by-side[
+    #v(topspace)
+    - H-DDPG baseline (orange)
+    - HGB-DDPG algorithm (blue)
+    - Pretrained on PointEnv-Empty-close.
+
+    #v(30pt)
+    We see the advantages of model-based methods: 
+
+    // - Asymptotic performance is worse
+    // - Overhead of subgoals too high
+    // - Not suitable for short horizon tasks
+  ][
+    #box(width: 100%, height: 90%)[
+      #let resize = 85%
+      #set text(size: 10pt) 
+      // #v(-15pt)
+      #scale(
+        figure(
+          grid(
+            columns: (15em, auto),
+            rows: (15em, 15em),
+            image("images/PointEnvs/OneLine-mid.png"),
+            image("images/DDPG-vs-HGB/plot-pretrained-ddpg-vs-hgb-oneline-mid.png"),
+            image("images/PointEnvs/OneLine-far.png"),
+            image("images/DDPG-vs-HGB/plot-pretrained-ddpg-vs-hgb-oneline-far.png"),
+          ),
+        ),
+        x: resize,
+        y: resize,
+      )
+    ]
+  ]
+]
+#slide(title: "Out-of-Distribution Challenges")[
+  #side-by-side[
+    #v(topspace)
+    - H-DDPG baseline (orange)
+    - HGB-DDPG algorithm (blue)
+    - Pretrained on PointEnv-Empty-close.
+
+    #v(30pt)
+    We see the advantages of model-based methods: 
+
+    // - Asymptotic performance is worse
+    // - Overhead of subgoals too high
+    // - Not suitable for short horizon tasks
+  ][
+    #box(width: 100%, height: 90%)[
+      #let resize = 85%
+      #set text(size: 10pt) 
+      // #v(-15pt)
+      #scale(
+        figure(
+          grid(
+            columns: (15em, auto),
+            rows: (15em, 15em),
+            image("images/PointEnvs/Hooks-mid.png"),
+            image("images/DDPG-vs-HGB/plot-pretrained-ddpg-vs-hgb-hooks-mid.png"),
+            image("images/PointEnvs/Hooks-far.png"),
+            image("images/DDPG-vs-HGB/plot-pretrained-ddpg-vs-hgb-hooks-far.png"),
+          ),
+        ),
+        x: resize,
+        y: resize,
+      )
+    ]
+  ]
+]
+
+
+
+#slide()[
+  #side-by-side[
+    #box(width: 100%, height: 90%)[
+      #strong("Results on In-Distribution Challenges")
+      #show table.cell.where(x: 2, y: 1): strong
+      #show table.cell.where(x: 4, y: 2): strong
+      #show table.cell.where(x: 4, y: 3): strong
+      #show table.cell.where(x: 4, y: 4): strong
+      #show table.cell.where(x: 4, y: 5): strong
+      #show table.cell.where(x: 4, y: 6): strong
+      #show table.cell.where(x: 4, y: 7): strong
+      #show table.cell.where(x: 4, y: 8): strong
+      #show table.cell.where(x: 2, y: 9): strong
+      #show table.cell.where(x: 4, y: 9): strong
+      #figure(
+        table(
+          columns: 6,
+          stroke: (x: none),
+          row-gutter: (2.2pt, auto),
+          ..csv("data/data_successes.csv").flatten(),
+        ),
+      )
+    ]
+  ][
+    #box(width: 100%, height: 90%)[
+      #strong("Results on Out-of-Distribution Challenges")
+      #show table.cell.where(x: 2, y: 1): strong
+      #show table.cell.where(x: 4, y: 1): strong
+      #show table.cell.where(x: 2, y: 2): strong
+      #show table.cell.where(x: 4, y: 2): strong
+      #show table.cell.where(x: 4, y: 3): strong
+      #show table.cell.where(x: 2, y: 4): strong
+      #show table.cell.where(x: 4, y: 4): strong
+      #show table.cell.where(x: 4, y: 5): strong
+      #show table.cell.where(x: 4, y: 6): strong
+      #show table.cell.where(x: 4, y: 7): strong
+      #show table.cell.where(x: 4, y: 8): strong
+      #show table.cell.where(x: 4, y: 9): strong
+      #figure(
+        table(
+          columns: 6,
+          stroke: (x: none),
+          row-gutter: (2.2pt, auto),
+          ..csv("data/data_successes_out-of-dist.csv").flatten(),
+        ),
+      )
+    ]
+  ]
+]
+
+
+#slide(title: "Model Interpretability")[
+  #side-by-side[
+    #box(width: 100%, height: 90%)[
+      #let resize = 85%
+      #set text(size: 10pt) 
+      #v(-30pt)
+      #scale(
+        figure(
+          grid(
+            columns: 2,
+            rows: 2,
+            image("images/PointEnvs/Hooks-far.png"),
+            image("images/PointEnv-Graph/PointEnv-Hooks-far--plan.png"),
+            image("images/PointEnv-Graph/PointEnv-Hooks-far--buffer.png"),
+            image("images/PointEnv-Graph/PointEnv-Hooks-far--graph-plan.png"),
+          ),
+        ),
+        x: resize,
+        y: resize,
+      )
+    ]
+  ][
+    #box(width: 100%, height: 90%)[
+      #let resize = 85%
+      #set text(size: 10pt) 
+      #v(-30pt)
+      #scale(
+        figure(
+          grid(
+            columns: 2,
+            rows: 2,
+            image("images/PointEnvs/Hooks-far.png"),
+            image("images/PointEnv-Graph/PointEnv-Hooks-far--50e-plan.png"),
+            image("images/PointEnv-Graph/PointEnv-Hooks-far--50e-buffer.png"),
+            image("images/PointEnv-Graph/PointEnv-Hooks-far--50e-graph-plan.png"),
+          ),
+        ),
+        x: resize,
+        y: resize,
+      )
+    ]
+  ]
 ]
 
 
@@ -71,327 +776,78 @@
 
 
 
+/// SECTION
+#new-section-slide("Conclusion")
 
 
+#slide(title: "Successes")[
+  #v(topspace)
+  Performance improvement for long-horizon tasks.
+
+  The model is interpretable, even editable.
+
+  Learning can transfer to new environments (no retraining).
+]
 
 
+#slide(title: "Caveats: Learned Distances")[
+  #side-by-side[
+    #v(topspace)
+    Learned distances are side-stepped by providing the true underlying (euclidean) distance function.
 
+    Proof of concept already shown by @SoRB@SGM, but implementation exceeded the scope of a MSc thesis.
 
+    Computationally expensive
+  ][
+    #v(topspace)
+  ]
+]
+#slide(title: "Future Research: Exploration")[
+  #side-by-side[
+    #v(topspace)
+    Potential for exploration improvements, e.g:
+    - Aiming for "frontiers" in the graph
+    - Keeping statistics on novel nodes found
 
+    A solution here would replace our need for pre-filling the replay buffer with uniformly distributed data
+  ][
+    #ogfigure(image("images/SGM/bad-buffer.png"))
+  ]
+]
+// #slide(title: "Future Research: 3-Phase Training")[
+//   #v(topspace)
+//   Phase 1 (Pretraining):
+//   - Attempt to reach previously visited nodes (Do not actively explore)
+//   - Improve success rate until converging
 
+//   Phase 2: (Exploration)
+//   - Attempt to reach frontiers of the graph (Randomly explore from there)
+//   - Keep per-node statistics & visit high-potential nodes
+//   - Continue until the number of new novel nodes converges to zero
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// #new-section-slide("Dynamic content")
-
-
-// #slide(title: [A dynamic slide with `pause`s])[
-//     Sometimes we don't want to display everything at once.
-//     #pause
-
-//     That's what the `#pause` function is there for!
-//     #pause
-
-//     It makes everything after it appear at the next subslide.
-
-//     #text(.6em)[(Also note that the slide number does not change while we are here.)]
-// ]
-
-// #slide(title: "Fine-grained control")[
-//     When `#pause` does not suffice, you can use more advanced commands to show
-//     or hide content.
-
-//     These are some of your options:
-//     - `#uncover`
-//     - `#only`
-//     - `#alternatives`
-//     - `#one-by-one`
-//     - `#line-by-line`
-
-//     Let's explore them in more detail!
-// ]
-
-// #let example(body) = block(
-//     width: 100%,
-//     inset: .5em,
-//     fill: aqua.lighten(80%),
-//     radius: .5em,
-//     text(size: .8em, body)
-// )
-
-// #slide(title: [`#uncover`: Reserving space])[
-//     With `#uncover`, content still occupies space, even when it is not displayed.
-
-//     For example, #uncover(2)[these words] are only visible on the second "subslide".
-
-//     In `()` behind `#uncover`, you specify _when_ to show the content, and in
-//     `[]` you then say _what_ to show:
-//     #example[
-//         ```typ
-//         #uncover(3)[Only visible on the third "subslide"]
-//         ```
-//         #uncover(3)[Only visible on the third "subslide"]
-//     ]
-// ]
-
-// #slide(title: "Complex display rules")[
-//     So far, we only used single subslide indices to define when to show something.
-
-//     We can also use arrays of numbers...
-//     #example[
-//         ```typ
-//         #uncover((1, 3, 4))[Visible on subslides 1, 3, and 4]
-//         ```
-//         #uncover((1, 3, 4))[Visible on subslides 1, 3, and 4]
-//     ]
-
-//     ...or a dictionary with `beginning` and/or `until` keys:
-//     #example[
-//         ```typ
-//         #uncover((beginning: 2, until: 4))[Visible on subslides 2, 3, and 4]
-//         ```
-//         #uncover((beginning: 2, until: 4))[Visible on subslides 2, 3, and 4]
-//     ]
-// ]
-
-// #slide(title: "Convenient rules as strings")[
-//     As as short hand option, you can also specify rules as strings in a special
-//     syntax.
-
-//     Comma separated, you can use rules of the form
-//     #table(
-//         columns: (auto, auto),
-//         column-gutter: 1em,
-//         stroke: none,
-//         align: (x, y) => (right, left).at(x),
-//         [`1-3`], [from subslide 1 to 3 (inclusive)],
-//         [`-4`], [all the time until subslide 4 (inclusive)],
-//         [`2-`], [from subslide 2 onwards],
-//         [`3`], [only on subslide 3],
-//     )
-//     #example[
-//         ```typ
-//         #uncover("-2, 4-6, 8-")[Visible on subslides 1, 2, 4, 5, 6, and from 8 onwards]
-//         ```
-//         #uncover("-2, 4-6, 8-")[Visible on subslides 1, 2, 4, 5, 6, and from 8 onwards]
-//     ]
-// ]
-
-// #slide(title: [`#only`: Reserving no space])[
-//     Everything that works with `#uncover` also works with `#only`.
-
-//     However, content is completely gone when it is not displayed.
-
-//     For example, #only(2)[#text(red)[see how]] the rest of this sentence moves.
-
-//     Again, you can use complex string rules, if you want.
-//     #example[
-//         ```typ
-//         #only("2-4, 6")[Visible on subslides 2, 3, 4, and 6]
-//         ```
-//         #only("2-4, 6")[Visible on subslides 2, 3, 4, and 6]
-//     ]
-// ]
-
-// #slide(title: [`#alternatives`: Substituting content])[
-//     You might be tempted to try
-//     #example[
-//         ```typ
-//         #only(1)[Ann] #only(2)[Bob] #only(3)[Christopher] likes #only(1)[chocolate] #only(2)[strawberry] #only(3)[vanilla] ice cream.
-//         ```
-//         #only(1)[Ann] #only(2)[Bob] #only(3)[Christopher]
-//         likes
-//         #only(1)[chocolate] #only(2)[strawberry] #only(3)[vanilla]
-//         ice cream.
-//     ]
-
-//     But it is hard to see what piece of text actually changes because everything
-//     moves around.
-//     Better:
-//     #example[
-//         ```typ
-//         #alternatives[Ann][Bob][Christopher] likes #alternatives[chocolate][strawberry][vanilla] ice cream.
-//         ```
-//         #alternatives[Ann][Bob][Christopher] likes #alternatives[chocolate][strawberry][vanilla] ice cream.
-//     ]
-// ]
-
-// #slide(title: [`#one-by-one`: An alternative for `#pause`])[
-//     `#alternatives` is to `#only` what `#one-by-one` is to `#uncover`.
-
-//     `#one-by-one` behaves similar to using `#pause` but you can additionally
-//     state when uncovering should start.
-//     #example[
-//         ```typ
-//         #one-by-one(start: 2)[one ][by ][one]
-//         ```
-//         #one-by-one(start: 2)[one ][by ][one]
-//     ]
-
-//     `start` can also be omitted, then it starts with the first subside:
-//     #example[
-//         ```typ
-//         #one-by-one[one ][by ][one]
-//         ```
-//         #one-by-one[one ][by ][one]
-//     ]
-// ]
-
-// #slide(title: [`#line-by-line`: syntactic sugar for `#one-by-one`])[
-//     Sometimes it is convenient to write the different contents to uncover one
-//     at a time in subsequent lines.
-
-//     This comes in especially handy for bullet lists, enumerations, and term lists.
-//     #example[
-//         #grid(
-//             columns: (1fr, 1fr),
-//             gutter: 1em,
-//             ```typ
-//             #line-by-line(start: 2)[
-//                 - first
-//                 - second
-//                 - third
-//             ]
-//             ```,
-//             line-by-line(start: 2)[
-//                 - first
-//                 - second
-//                 - third
-//             ]
-//         )
-//     ]
-
-//     `start` is again optional and defaults to `1`.
-// ]
-
-// #slide(title: [`#list-one-by-one` and Co: when `#line-by-line` doesn't suffice])[
-//     While `#line-by-line` is very convenient syntax-wise, it fails to produce
-//     more sophisticated bullet lists, enumerations or term lists.
-//     For example, non-tight lists are out of reach.
-
-//     For that reason, there are `#list-one-by-one`, `#enum-one-by-one`, and 
-//     `#terms-one-by-one`, respectively.
-//     #example[
-//         #grid(
-//             columns: (1fr, 1fr),
-//             gutter: 1em,
-//             ```typ
-//             #enum-one-by-one(start: 2, tight: false, numbering: "i)")[first][second][third]
-//             ```,
-//             enum-one-by-one(start: 2, tight: false, numbering: "i)")[first][second][third]
-//         )
-//     ]
-
-//     Note that, for technical reasons, the bullet points, numbers, or terms are
-//     never covered.
-
-//     `start` is again optional and defaults to `1`.
+//   Phase 3 (Exploitation)
+//   - Reach goals & cleanup graph
 // ]
 
 
-// /*
-// #slide(title: "Different ways of covering content")[
-//     When content is covered, it is completely invisible by default.
-
-//     However, you can also just display it in light gray by using the
-//     `mode` argument with the value `"transparent"`:
-//     #let pc = 1
-//     #{ pc += 1 } #show: pause(pc, mode: "transparent")
-
-//     Covered content is then displayed differently.
-//     #{ pc += 1 } #show: pause(pc, mode: "transparent")
-
-//     Every `uncover`-based function has an optional `mode` argument:
-//     - `#show: pause(...)`
-//     - `#uncover(...)[...]`
-//     - `#one-by-one(...)[...][...]`
-//     - `#line-by-line(...)[...][...]`
-// ]
-// */
-
-// #new-section-slide("Themes")
 
 
-// #slide(title: "How a slide looks...")[
-//     ... is defined by the _theme_ of the presentation.
 
-//     This demo uses the `clean` theme.
 
-//     Because of it, the title slide and the decoration on each slide (with
-//     section name, short title, slide number etc.) look the way they do.
 
-//     Themes can also provide variants, for example ...
+/// SECTION
+#new-section-slide("Questions")
+
+
+#slide(title: "Bibliography")[
+    #bibliography(title: none, "refs.bib")
+]
+
+// #slide(title: "That's it!")[
+//   Consider giving my repository #link("https://github.com/dashdeckers/graph_rl")[a GitHub star #text(font: "OpenMoji")[#emoji.star]] or open an issue if you run into bugs or have feature requests.
 // ]
 
-// #focus-slide[
-//     ... this one!
 
-//     It's very minimalist and helps the audience focus on an important point.
-// ]
 
-// #slide(title: "Your own theme?")[
-//     If you want to create your own design for slides, you can define custom
-//     themes!
 
-//     #link("https://polylux.dev/book/themes/your-own.html")[The book]
-//     explains how to do so.
-// ]
-
-// #new-section-slide("Utilities")
-
-// #slide(title: [The `utils` module])[
-//     Polylux ships a `utils` module with solutions for common tasks in slide
-//     building.
-// ]
-
-// #slide(title: [Fit to height])[
-//     You can scale content such that it has a certain height using
-//     `#fit-to-height(height, content)`:
-
-//     #fit-to-height(2.5cm)[Height is `2.5cm`]
-// ]
-
-// #slide(title: "Fill remaining space")[
-//     This function also allows you to fill the remaining space by using fractions
-//     as heights, i.e. `fit-to-height(1fr)[...]`:
-
-//     #fit-to-height(1fr)[Wow!]
-// ]
-
-// #slide(title: "Side by side content")[
-//     Often you want to put different content next to each other.
-//     We have the function `#side-by-side` for that:
-
-//     #side-by-side(lorem(10), lorem(20), lorem(15))
-// ]
-
-// #slide(title: "Outline")[
-//     Why not include an outline?
-//     #polylux-outline(padding: 1em, enum-args: (tight: false))
-// ]
-
-// #new-section-slide("Typst features")
-
-// #slide(title: "Use Typst!")[
-//     Typst gives us so many cool things #footnote[For example footnotes!].
-//     Use them!
-// ]
-
-// #slide(title: "Bibliography")[
-//     Let us cite something so we can have a bibliography: @DDPG
-//     #bibliography(title: none, "refs.bib")
-// ]
 

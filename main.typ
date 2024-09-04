@@ -3,9 +3,6 @@
 // Diagrams
 #import "drawings.typ": *
 
-// Graphs
-#import "@preview/diagraph:0.2.1": render as render-graph
-
 // Pseudocode
 #import "@preview/lovelace:0.2.0": algorithm, pseudocode-list, setup-lovelace
 #show: setup-lovelace
@@ -369,31 +366,7 @@ As we said in the introduction, in the end we want our agent to make use of a hi
 We specifically consider a weighted, directed graph, which is defined by a triple of disjoint sets $G=(V, E, w)$, such that $V$ is the set of #emph("vertices"), also called nodes, $E$ is the set of #emph("edges") which are each an ordered 2-element subset of $V$ defining which two vertices are #emph("joined") by the edge (e.g. $x, y in V$ joined by $x y in E$), and $w$ is the #emph("weighting function") which defines the #emph("weight") of an edge (e.g. $w(x y) = 0.5$), which we interpret as the cost of traversing that edge. Because we specifically consider #emph("directed") graphs in this thesis, the ordering of the vertices joined by edges matters, i.e. $x y in E eq.not y x in E$. An edge can join a vertex with itself $x x in E$, this is called a #emph("loop"), but we do not consider parallel edges (multiple edges connecting the same vertices in the same direction). This definition has the consequence that the manner in which the graph is drawn is irrelevant, only the information about which vertices exist and how they are joined by edges is important @GraphTheory. 
 
 #figure(
-  box(
-    scale(
-      render-graph(
-        "digraph mygraph {
-          layout=\"twopi\";
-          node [shape=circle];
-          A -> B [label=\"1.5\"];
-          B -> A [label=\"3.9\"];
-          B -> C [label=\"3.2\"];
-          C -> B [label=\"0.5\"];
-          B -> D [label=\"2.3\"];
-          D -> B [label=\"3.1\"];
-          C -> F [label=\"4.7\"];
-          F -> C [label=\"2.5\"];
-          D -> F [label=\"1.3\"];
-          F -> D [label=\"3.5\"];
-          A -> F [label=\"4.1\"];
-          F -> A [label=\"3.0\"];
-        }"
-      ),
-      // x: 100%,
-      // y: 100%,
-    ),
-    // height: 210pt,
-  ),
+  box(example-graph),
   caption: [An example graph with 5 nodes.],
   placement: auto,
 )<fig-graph-example1>

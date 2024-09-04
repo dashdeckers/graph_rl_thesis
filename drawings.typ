@@ -1,4 +1,5 @@
 #import "@preview/cetz:0.2.0"
+#import "@preview/diagraph:0.2.1": render as render-graph
 #import cetz.draw: rect, circle, content, line, bezier, on-layer, mark
 
 
@@ -1481,6 +1482,240 @@
 
 
 
+
+#let actor-critic-architecture-hierarchical = cetz.canvas({
+  let c1 = color-black
+  let c2 = color-black
+  let c3 = color-black
+  let c4 = color-black
+  let stroke1 = 1pt + c1
+  let stroke2 = 1pt + c2
+  let stroke3 = 1pt + c3
+  let stroke4 = stroke3 // 1pt + c4
+  
+  let env_a = (1.25, 0)
+  let env_b = (5.5, 1)
+
+  let agent_a = (0.5, 2.75)
+  let agent_b = (6.25, 6.25)
+
+  let policy_a = (2.75, 5.25)
+  let policy_b = (5.5, 6)
+
+  let algo_a = (2.75, 3)
+  let algo_b = (5.5, 3.75)
+
+  let buffer_a = (1.0, 3.0)
+  let buffer_b = (2.0, 6)
+
+
+  
+  tbox(
+    a: agent_a,
+    b: agent_b,
+    label: "agent",
+    fill: color-yellow,
+  )
+  tbox(
+    a: policy_a,
+    b: policy_b,
+    label: "policy",
+    text: "Actor / Policy",
+  )
+  tbox(
+    a: algo_a,
+    b: algo_b,
+    label: "algo",
+    text: "Critic / Value F.",
+  )
+  tbox(
+    a: buffer_a,
+    b: buffer_b,
+    label: "buffer",
+    text: "Buffer",
+    fill: color-gray,
+  )
+
+  
+  tbox(
+    a: env_a,
+    b: env_b,
+    label: "environment",
+    text: "Environment",
+  )
+
+
+
+  // Left lines
+
+  let mid_y = (env_b.last() + agent_a.last()) / 2
+  let mid_x = (env_a.first() + env_b.first()) / 2
+
+  let anchor_up = 160deg
+  let anchor_lo = 200deg
+
+  let x_line1 = env_a.first() - 1.5
+  let x_line2 = env_a.first() - 1
+  let x_line3 = env_b.first() + 1
+
+  // Lines: Env --> Buffer
+  line(
+    (name: "environment", anchor: anchor_lo),
+    ((name: "environment", anchor: anchor_lo), "-|", (x_line1, mid_y)),
+    (x_line1, mid_y),
+    mark: (end: arrowhead, fill: c3),
+    stroke: stroke3,
+  )
+  line(
+    (x_line1, mid_y),
+    ((x_line1, mid_y), "|-", (name: "buffer", anchor: anchor_up)),
+    (name: "buffer", anchor: anchor_up),
+    mark: (end: arrowhead, fill: c1),
+    stroke: stroke1,
+  )
+
+  // Lines: Env --> Buffer
+  line(
+    (name: "environment", anchor: anchor_up),
+    ((name: "environment", anchor: anchor_up), "-|", (x_line2, mid_y)),
+    (x_line2, mid_y),
+    mark: (end: arrowhead, fill: c3),
+    stroke: stroke3,
+  )
+  line(
+    (x_line2, mid_y),
+    ((x_line2, mid_y), "|-", (name: "buffer", anchor: anchor_lo)),
+    (name: "buffer", anchor: anchor_lo),
+    mark: (end: arrowhead, fill: c4),
+    stroke: stroke4,
+  )
+  
+  // Lines: Buffer --> Policy
+  line(
+    ((buffer_b.first(), mid_y), "|-", "policy"),
+    "policy",
+    mark: (end: arrowhead, fill: c1),
+    stroke: stroke1,
+    name: "buffer-policy-x",
+  )
+
+  // Lines: Buffer --> Value Function
+  line(
+    ((buffer_b.first(), mid_y), "|-", (name: "algo", anchor: anchor_lo)),
+    (name: "algo", anchor: anchor_lo),
+    mark: (end: arrowhead, fill: c4),
+    stroke: stroke4,
+    name: "env-alg-reward-t",
+  )
+  line(
+    ((buffer_b.first(), mid_y), "|-", (name: "algo", anchor: anchor_up)),
+    (name: "algo", anchor: anchor_up),
+    mark: (end: arrowhead, fill: c1),
+    stroke: stroke1,
+    name: "env-alg-state-t",
+  )
+
+
+  // Lines: Dotted
+  line(
+    (x_line1 - 1, mid_y),
+    (x_line2 + 1, mid_y),
+    stroke: (dash: "dotted"),
+    name: "dotted",
+  )
+  content(
+    (x_line1, mid_y),
+    align(right, box(fill: white, "\n" + $G_(t+1), O_(t+1)$)),
+    padding: .1,
+    anchor: "north-east",
+  )
+  content(
+    (x_line2, mid_y),
+    align(left, box(fill: white, "\n" + $R_(t+1)$)),
+    padding: .1,
+    anchor: "north-west",
+  )
+  content(
+    (x_line1, mid_y),
+    align(right, box(fill: white, $G_t,O_t$ + "\nGC-observ.")),
+    padding: .1,
+    anchor: "south-east",
+  )
+  content(
+    (x_line2, mid_y),
+    align(left, box(fill: white, $R_t$ + "\nreward")),
+    padding: .1,
+    anchor: "south-west",
+  )
+
+  
+  // Right line
+
+  line(
+    "policy",
+    ("policy", "-|", (x_line3, mid_y)),
+    ((x_line3, mid_y), "|-", "environment.east"),
+    "environment.east",
+    mark: (end: arrowhead, fill: c2),
+    stroke: stroke2,
+    name: "policy-env-action-t",
+  )
+  content(
+    (x_line3, mid_y),
+    align(left, box(fill: white, $A_t$ + "\naction")),
+    padding: .1,
+    anchor: "south-west",
+  )
+
+
+  // Inner lines
+
+  let right_between_policy = (
+    (policy_b.first() + agent_b.first()) / 2,
+    (policy_a.last() + policy_b.last()) / 2,
+  )
+  let right_between_algo = (
+    (algo_b.first() + agent_b.first()) / 2,
+    (algo_a.last() + algo_b.last()) / 2,
+  )
+
+  line(
+    ("policy", "-|", right_between_policy),
+    right_between_algo,
+    "algo",
+    mark: (end: arrowhead, fill: c2),
+    stroke: stroke2,
+    name: "policy-alg-action-t",
+  )
+  let policy_update_start = (name: "algo", anchor: 100deg)
+  line(
+    policy_update_start,
+    (name: "policy", anchor: 260deg),
+    mark: (end: arrowhead-update, scale: 2),
+    stroke: stroke2,
+    name: "alg-policy-update",
+  )
+  bezier(
+    policy_update_start,
+    (name: "algo", anchor: 60deg),
+    (name: "policy", anchor: 260deg),
+    mark: (end: arrowhead-update, scale: 2),
+  )
+
+  content(
+    "alg-policy-update.mid",
+    align(left, box(text("TD\nUpdate", hyphenate: false))),
+    padding: .2,
+    anchor: "east",
+  )
+})
+
+
+
+
+
+
+
 #let hierarchical-graph-based-ddpg = cetz.canvas({
   let c1 = color-black
   let c2 = color-black
@@ -2009,7 +2244,24 @@
 
 
 
-
+#let example-graph = render-graph(
+  "digraph mygraph {
+    layout=\"twopi\";
+    node [shape=circle];
+    A -> B [label=\"1.5\"];
+    B -> A [label=\"3.9\"];
+    B -> C [label=\"3.2\"];
+    C -> B [label=\"0.5\"];
+    B -> D [label=\"2.3\"];
+    D -> B [label=\"3.1\"];
+    C -> F [label=\"4.7\"];
+    F -> C [label=\"2.5\"];
+    D -> F [label=\"1.3\"];
+    F -> D [label=\"3.5\"];
+    A -> F [label=\"4.1\"];
+    F -> A [label=\"3.0\"];
+  }"
+)
 
 
 
